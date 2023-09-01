@@ -1,6 +1,9 @@
 package lru
 
-import "container/list"
+import (
+	"container/list"
+	"log"
+)
 
 // 淘汰算法选择 （LFU 最近最少使用算法）
 // 实现：
@@ -48,12 +51,6 @@ func New(maxBytes int64, evictedFunc OnEvictedFunc) *Cache {
 	}
 }
 
-// Len the number of cache entries
-// 方便测试 返回当前存储的节点个数
-func (c *Cache) Len() int {
-	return c.ll.Len()
-}
-
 // Get look ups a key's value
 // 将元素移动至队尾 约定 头部为队尾
 func (c *Cache) Get(key string) (value Value, ok bool) {
@@ -75,7 +72,8 @@ func (c *Cache) Add(key string, value Value) {
 		c.ll.MoveToFront(ele) // 元素移动至队列头
 		kv := ele.Value.(*entry)
 		c.nBytes += int64(value.Len()) - int64(kv.value.Len()) // 重新计算现使用空间大小
-		kv.value = value                                       // 更新值
+		log.Printf("update itme key [%s] old value [%v] value [%v]", key, kv.value, value)
+		kv.value = value // 更新值
 	} else { // 添加
 		ele := c.ll.PushFront(&entry{
 			key:   key,
@@ -83,6 +81,7 @@ func (c *Cache) Add(key string, value Value) {
 		}) // 存储节点
 		c.hashMap[key] = ele                             // 更新 key 和 节点指针映射关系
 		c.nBytes += int64(len(key)) + int64(value.Len()) // 重新计算现使用空间大小
+		log.Printf("add itme key [%s] value [%v]", key, value)
 	}
 	// 循环删除节点 一直到现使用空间大小小于最大存储空间大小
 	for c.maxBytes != 0 && c.nBytes > c.maxBytes {
@@ -103,5 +102,21 @@ func (c *Cache) removeOldest() {
 		if c.OnEvicted != nil {                                // 执行回调
 			c.OnEvicted(kv.key, kv.value)
 		}
+		log.Printf("remove oldest itme key [%s]", kv.key)
 	}
+}
+
+// Len the number of cache entries
+// 方便测试 返回当前存储的节点个数
+func (c *Cache) Len() int {
+	return c.ll.Len()
+}
+
+// Keys the all key of cache list
+func (c *Cache) Keys() *[]string {
+	keys := make([]string, 0)
+	for k, _ := range c.hashMap {
+		keys = append(keys, k)
+	}
+	return &keys
 }
