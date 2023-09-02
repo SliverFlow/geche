@@ -2,8 +2,17 @@ package lru
 
 import (
 	"container/list"
-	"log"
+	"log/slog"
+	"os"
 )
+
+func init() {
+	infoOpts := slog.HandlerOptions{
+		AddSource: true,
+		Level:     slog.LevelInfo,
+	}
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &infoOpts)))
+}
 
 // 淘汰算法选择 （LFU 最近最少使用算法）
 // 实现：
@@ -72,7 +81,7 @@ func (c *Cache) Add(key string, value Value) {
 		c.ll.MoveToFront(ele) // 元素移动至队列头
 		kv := ele.Value.(*entry)
 		c.nBytes += int64(value.Len()) - int64(kv.value.Len()) // 重新计算现使用空间大小
-		log.Printf("update itme key [%s] old value [%v] value [%v]", key, kv.value, value)
+		slog.Info("update item", "key", key, "old value", kv.value, "new value", value)
 		kv.value = value // 更新值
 	} else { // 添加
 		ele := c.ll.PushFront(&entry{
@@ -81,7 +90,7 @@ func (c *Cache) Add(key string, value Value) {
 		}) // 存储节点
 		c.hashMap[key] = ele                             // 更新 key 和 节点指针映射关系
 		c.nBytes += int64(len(key)) + int64(value.Len()) // 重新计算现使用空间大小
-		log.Printf("add itme key [%s] value [%v]", key, value)
+		slog.Info("add item", "key", key, "value", value)
 	}
 	// 循环删除节点 一直到现使用空间大小小于最大存储空间大小
 	for c.maxBytes != 0 && c.nBytes > c.maxBytes {
@@ -102,7 +111,7 @@ func (c *Cache) removeOldest() {
 		if c.OnEvicted != nil {                                // 执行回调
 			c.OnEvicted(kv.key, kv.value)
 		}
-		log.Printf("remove oldest itme key [%s]", kv.key)
+		slog.Info("remove oldest item", "key", kv.key)
 	}
 }
 
